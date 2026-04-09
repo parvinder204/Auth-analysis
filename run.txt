@@ -1,0 +1,19 @@
+Terminal 1 — Django (port 8000)
+cd django_app
+chmod +x setup.sh && ./setup.sh
+source .venv/bin/activate
+python manage.py runserver 8000
+
+
+
+Terminal 2 — FastAPI (port 8001)
+cd fastapi_app
+chmod +x setup.sh && ./setup.sh
+source .venv/bin/activate
+uvicorn main:app --reload --port 8001
+
+
+
+Frontend: 
+Open: http://localhost:8000/ (Django)
+Open: http://localhost:8001/ (FastAPI)
