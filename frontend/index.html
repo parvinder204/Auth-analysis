@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Auth Showcase — Session vs JWT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f2ee;
+      --bg-2: #eceae4;
+      --surface: #ffffff;
+      --surface-2: #f9f8f5;
+      --border: #d8d4cc;
+      --border-dim: #e4e1d9;
+      --text: #1a1915;
+      --text-secondary: #4a4740;
+      --text-muted: #7a766e;
+      --text-dim: #a8a49c;
+
+      --django: #0d7a4e;
+      --django-bg: #e8f5ee;
+      --django-border: #b8dfc9;
+
+      --fastapi: #0076a8;
+      --fastapi-bg: #e6f3fa;
+      --fastapi-border: #b8d8ed;
+
+      --session: #b85c00;
+      --session-bg: #fef2e6;
+      --session-border: #f0c99a;
+
+      --jwt: #5b3fd6;
+      --jwt-bg: #f0eeff;
+      --jwt-border: #c9bef5;
+
+      --success: #1a7a4e;
+      --success-bg: #e8f5ee;
+      --error: #c0392b;
+      --error-bg: #fdecea;
+      --warning: #b85c00;
+
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+
+      --radius: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* ---- Warning banners ---- */
+    .warn-banner {
+      display: none;
+      padding: 11px 28px;
+      font-family: 'DM Mono', monospace;
+      font-size: 12px;
+      gap: 10px;
+      align-items: flex-start;
+      border-bottom: 2px solid;
+    }
+    .warn-banner.show { display: flex; }
+    .warn-banner strong { font-weight: 600; }
+    .warn-banner code {
+      background: rgba(0,0,0,0.08);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+    #banner-file {
+      background: #fff3cd;
+      border-color: #e8a838;
+      color: #7a4800;
+    }
+    #banner-origin {
+      background: #fdecea;
+      border-color: #e05c5c;
+      color: #7a1a1a;
+    }
+
+    .header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: rgba(244, 242, 238, 0.94);
+      backdrop-filter: blur(16px);
+      z-index: 100;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .header-left h1 {
+      font-family: 'Fraunces', serif;
+      font-size: 19px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+    .header-left p {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .served-by {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      border: 1px solid;
+    }
+    .served-by.django { background: var(--django-bg); color: var(--django); border-color: var(--django-border); }
+    .served-by.fastapi { background: var(--fastapi-bg); color: var(--fastapi); border-color: var(--fastapi-border); }
+    .served-by.unknown { background: var(--session-bg); color: var(--session); border-color: var(--session-border); }
+
+    .badge {
+      font-family: 'DM Mono', monospace;
+      font-size: 10px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+    .badge-django { background: var(--django-bg); color: var(--django); border: 1px solid var(--django-border); }
+    .badge-fastapi { background: var(--fastapi-bg); color: var(--fastapi); border: 1px solid var(--fastapi-border); }
+
+    .main {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 24px 28px;
+    }
+
+    .server-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+      background: var(--surface);
+      padding: 5px;
+      border-radius: var(--radius-xl);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      width: fit-content;
+    }
+
+    .server-tab {
+      padding: 9px 22px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: var(--radius-lg);
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Fraunces', serif;
+      font-size: 15px;
+      font-weight: 700;
+      transition: all 0.18s;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      position: relative;
+      overflow: hidden;
+    }
+    .server-tab:hover:not(.active) { background: var(--bg-2); color: var(--text-secondary); }
+
+    .server-tab.active[data-server="django"] {
+      background: var(--django-bg); color: var(--django);
+      border-color: var(--django-border);
+      box-shadow: 0 2px 8px rgba(13,122,78,0.12);
+    }
+    .server-tab.active[data-server="fastapi"] {
+      background: var(--fastapi-bg); color: var(--fastapi);
+      border-color: var(--fastapi-border);
+      box-shadow: 0 2px 8px rgba(0,118,168,0.12);
+    }
+
+    .server-tab.cross-origin-tab {
+      opacity: 0.55;
+    }
+    .server-tab.cross-origin-tab::after {
+      content: 'cross-origin';
+      font-family: 'DM Mono', monospace;
+      font-size: 8px;
+      font-weight: 500;
+      padding: 1px 5px;
+      border-radius: 8px;
+      background: var(--session-bg);
+      color: var(--session);
+      border: 1px solid var(--session-border);
+      letter-spacing: 0.03em;
+    }
+
+    .tab-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: all 0.3s;
+      flex-shrink: 0;
+    }
+    .server-tab.active[data-server="django"] .tab-dot {
+      background: var(--django);
+      animation: pulseDjango 2s ease infinite;
+    }
+    @keyframes pulseDjango {
+      0%,100% { box-shadow: 0 0 0 2px rgba(13,122,78,0.25); }
+      50%      { box-shadow: 0 0 0 5px rgba(13,122,78,0.06); }
+    }
+    .server-tab.active[data-server="fastapi"] .tab-dot {
+      background: var(--fastapi);
+      animation: pulseFastapi 2s ease infinite;
+    }
+    @keyframes pulseFastapi {
+      0%,100% { box-shadow: 0 0 0 2px rgba(0,118,168,0.25); }
+      50%      { box-shadow: 0 0 0 5px rgba(0,118,168,0.06); }
+    }
+    .tab-url {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      opacity: 0.6;
+      font-weight: 400;
+    }
+    .server-tab.active::before {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 14px; right: 14px;
+      height: 2px;
+      border-radius: 2px 2px 0 0;
+    }
+    .server-tab.active[data-server="django"]::before  { background: var(--django); }
+    .server-tab.active[data-server="fastapi"]::before { background: var(--fastapi); }
+
+    .tab-live {
+      font-family: 'DM Mono', monospace;
+      font-size: 8px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      display: none;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+    }
+    .server-tab.active[data-server="django"] .tab-live  { display: inline; background: var(--django);  color: #fff; }
+    .server-tab.active[data-server="fastapi"] .tab-live { display: inline; background: var(--fastapi); color: #fff; }
+
+    .method-selector { display: flex; gap: 12px; margin-bottom: 22px; }
+    .method-card {
+      flex: 1;
+      padding: 14px 18px;
+      border-radius: var(--radius-lg);
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      transition: all 0.18s;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .method-card:hover:not(.active) { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .method-card.active.session { border-color: var(--session-border); background: var(--session-bg); box-shadow: 0 4px 16px rgba(184,92,0,0.09); }
+    .method-card.active.jwt     { border-color: var(--jwt-border);     background: var(--jwt-bg);     box-shadow: 0 4px 16px rgba(91,63,214,0.09); }
+    .method-card::before {
+      content: ''; position: absolute;
+      top: 0; bottom: 0; left: 0; width: 3px;
+      border-radius: 3px 0 0 3px;
+    }
+    .method-card.active.session::before { background: var(--session); }
+    .method-card.active.jwt::before     { background: var(--jwt); }
+    .method-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+    .method-card-label  { font-family: 'Fraunces', serif; font-weight: 700; font-size: 15px; color: var(--text-secondary); transition: color 0.18s; }
+    .method-card.active.session .method-card-label { color: var(--session); }
+    .method-card.active.jwt     .method-card-label { color: var(--jwt); }
+    .method-card-icon { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+    .method-card.active.session .method-card-icon { background: var(--session); }
+    .method-card.active.jwt     .method-card-icon { background: var(--jwt); }
+    .method-card:not(.active)   .method-card-icon { background: var(--bg-2); }
+    .method-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+    .method-card-tag  { font-family: 'DM Mono', monospace; font-size: 10px; margin-top: 8px; padding: 2px 9px; border-radius: 20px; display: inline-block; font-weight: 500; }
+    .method-card.active.session .method-card-tag { background: var(--session); color: white; }
+    .method-card.active.jwt     .method-card-tag { background: var(--jwt);     color: white; }
+    .method-card:not(.active)   .method-card-tag { background: var(--bg-2); color: var(--text-muted); border: 1px solid var(--border); }
+
+    .workspace { display: grid; grid-template-columns: 350px 1fr; gap: 18px; align-items: start; }
+
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; box-shadow: var(--shadow-md); }
+    .panel-header { padding: 12px 18px; border-bottom: 1px solid var(--border-dim); display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); }
+    .panel-title  { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .panel-body   { padding: 18px; }
+
+    .auth-state { padding: 11px 13px; border-radius: var(--radius); border: 1px solid var(--border-dim); background: var(--bg); margin-bottom: 16px; display: flex; flex-direction: column; gap: 5px; }
+    .auth-state-row { display: flex; align-items: center; gap: 8px; }
+    .state-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; transition: all 0.3s; }
+    .state-dot.active   { background: var(--success); animation: statePulse 2s ease infinite; }
+    .state-dot.inactive { background: var(--border); }
+    @keyframes statePulse {
+      0%,100% { box-shadow: 0 0 0 3px rgba(26,122,78,0.15); }
+      50%      { box-shadow: 0 0 0 5px rgba(26,122,78,0.05); }
+    }
+    .state-text        { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); }
+    .state-text.active { color: var(--success); font-weight: 500; }
+
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500; }
+    .field input {
+      width: 100%; background: var(--bg);
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      padding: 9px 13px; color: var(--text);
+      font-family: 'DM Mono', monospace; font-size: 13px;
+      outline: none; transition: all 0.15s;
+    }
+    .field input:focus { border-color: var(--jwt); background: white; box-shadow: 0 0 0 3px rgba(91,63,214,0.08); }
+    .field input::placeholder { color: var(--text-dim); }
+
+    .btn-group { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .btn {
+      width: 100%; padding: 9px 13px;
+      border-radius: var(--radius); border: 1.5px solid var(--border);
+      background: var(--surface-2); color: var(--text-secondary);
+      font-family: 'DM Mono', monospace; font-size: 12px;
+      cursor: pointer; transition: all 0.15s;
+      text-align: left; display: flex; align-items: center; justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn:hover { background: var(--surface); border-color: var(--text-dim); color: var(--text); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn.btn-primary { background: var(--jwt-bg); border-color: var(--jwt-border); color: var(--jwt); }
+    .btn.btn-primary:hover { background: var(--jwt); color: white; border-color: var(--jwt); }
+    .btn.loading { opacity: 0.5; pointer-events: none; }
+    .btn-method { font-size: 9px; padding: 2px 7px; border-radius: 20px; font-weight: 500; letter-spacing: 0.04em; }
+    .btn-method.get  { background: var(--django-bg); color: var(--django); border: 1px solid var(--django-border); }
+    .btn-method.post { background: var(--jwt-bg);    color: var(--jwt);    border: 1px solid var(--jwt-border); }
+
+    .info-box { background: var(--bg); border: 1px solid var(--border-dim); border-radius: var(--radius); padding: 12px 14px; margin-top: 16px; }
+    .info-box-title { font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid var(--border-dim); font-size: 12px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: var(--text-muted); font-family: 'DM Mono', monospace; font-size: 11px; }
+    .info-value { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 10px; }
+    .info-value.session { background: var(--session-bg); color: var(--session); }
+    .info-value.jwt     { background: var(--jwt-bg);     color: var(--jwt); }
+    .info-value.django  { background: var(--django-bg);  color: var(--django); }
+    .info-value.fastapi { background: var(--fastapi-bg); color: var(--fastapi); }
+    .info-value.neutral { background: var(--bg-2);       color: var(--text-secondary); }
+
+    .divider { height: 1px; background: var(--border-dim); margin: 14px 0; }
+
+    .token-display { background: var(--jwt-bg); border: 1px solid var(--jwt-border); border-radius: var(--radius); padding: 9px 13px; margin-top: 8px; }
+    .token-label   { font-family: 'DM Mono', monospace; color: var(--jwt); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; font-weight: 500; }
+    .token-value   { color: var(--text-secondary); word-break: break-all; line-height: 1.5; font-family: 'DM Mono', monospace; font-size: 10px; }
+
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 16px; }
+    .comparison-card { background: var(--bg); border-radius: var(--radius); padding: 12px; border: 1px solid var(--border-dim); }
+    .comparison-card.session { border-top: 2px solid var(--session); }
+    .comparison-card.jwt     { border-top: 2px solid var(--jwt); }
+    .comparison-card-title { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+    .comparison-card.session .comparison-card-title { color: var(--session); }
+    .comparison-card.jwt     .comparison-card-title { color: var(--jwt); }
+    .comparison-item { font-size: 11px; color: var(--text-muted); padding: 2px 0; display: flex; gap: 5px; }
+    .comparison-item::before { content: '→'; font-size: 10px; flex-shrink: 0; }
+    .comparison-card.session .comparison-item::before { color: var(--session); }
+    .comparison-card.jwt     .comparison-item::before { color: var(--jwt); }
+
+    .response-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); overflow: hidden; display: flex; flex-direction: column; min-height: 560px; box-shadow: var(--shadow-md); }
+    .response-header { padding: 11px 18px; border-bottom: 1px solid var(--border-dim); display: flex; align-items: center; justify-content: space-between; background: var(--surface-2); }
+    .response-meta { display: flex; align-items: center; gap: 10px; }
+    .response-title { font-family: 'DM Mono', monospace; font-weight: 500; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+    .response-status { font-family: 'DM Mono', monospace; font-size: 11px; padding: 2px 9px; border-radius: 20px; font-weight: 500; display: none; }
+    .response-status.success { background: var(--success-bg); color: var(--success); border: 1px solid var(--django-border); display: inline-block; }
+    .response-status.error   { background: var(--error-bg);   color: var(--error);   border: 1px solid #f5c6c0; display: inline-block; }
+    .response-action { display: flex; align-items: center; gap: 8px; }
+    .response-endpoint { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); padding: 3px 9px; background: var(--bg); border-radius: 20px; border: 1px solid var(--border); }
+    .clear-btn { background: none; border: 1px solid var(--border); color: var(--text-muted); font-family: 'DM Mono', monospace; font-size: 11px; padding: 3px 10px; border-radius: 20px; cursor: pointer; transition: all 0.15s; }
+    .clear-btn:hover { border-color: var(--text-muted); color: var(--text); background: var(--bg); }
+    .response-body { flex: 1; padding: 18px; overflow-y: auto; }
+    .response-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 360px; color: var(--text-dim); font-family: 'DM Mono', monospace; font-size: 12px; text-align: center; gap: 10px; }
+    .placeholder-icon { font-size: 34px; opacity: 0.22; }
+
+    .json-output { font-family: 'DM Mono', monospace; font-size: 12.5px; line-height: 1.8; white-space: pre-wrap; word-break: break-all; background: var(--bg); padding: 14px 16px; border-radius: var(--radius); border: 1px solid var(--border-dim); }
+    .json-key     { color: #0a4a7a; font-weight: 500; }
+    .json-string  { color: #1a6b2e; }
+    .json-number  { color: #7a4500; }
+    .json-boolean { color: #5b3fd6; font-weight: 500; }
+    .json-null    { color: var(--text-muted); }
+
+    .request-log { border-top: 1px solid var(--border-dim); max-height: 180px; overflow-y: auto; }
+    .log-header { padding: 7px 18px; font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); background: var(--surface-2); border-bottom: 1px solid var(--border-dim); }
+    .log-entry { padding: 6px 18px; border-bottom: 1px solid var(--border-dim); display: flex; align-items: center; gap: 10px; font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-muted); transition: background 0.1s; }
+    .log-entry:hover { background: var(--bg-2); }
+    .log-entry.active-entry { background: rgba(91,63,214,0.04); }
+    .log-time { color: var(--text-dim); flex-shrink: 0; font-size: 10px; }
+    .log-method { padding: 1px 6px; border-radius: 10px; font-size: 10px; flex-shrink: 0; font-weight: 500; }
+    .log-method.get  { background: var(--django-bg); color: var(--django); }
+    .log-method.post { background: var(--jwt-bg);    color: var(--jwt); }
+    .log-path   { flex: 1; color: var(--text-secondary); }
+    .log-dur    { color: var(--text-dim); font-size: 10px; flex-shrink: 0; }
+    .log-status { flex-shrink: 0; font-size: 10px; font-weight: 500; }
+    .log-status.ok   { color: var(--success); }
+    .log-status.fail { color: var(--error); }
+
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    .fade-in { animation: fadeSlideIn 0.22s ease; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    @media (max-width: 1100px) { .workspace { grid-template-columns: 310px 1fr; } }
+    @media (max-width: 900px)  { .workspace { grid-template-columns: 1fr; } .main { padding: 14px; } }
+  </style>
+</head>
+<body>
+
+<div class="warn-banner" id="banner-file">
+  <span>⚠</span>
+  <div>
+    <strong>Opened from <code>file://</code> — session cookies will NOT work.</strong>
+    You must serve this file from a backend. See instructions below.
+  </div>
+</div>
+
+<div class="warn-banner" id="banner-origin">
+  <span>⚠</span>
+  <div id="banner-origin-msg"></div>
+</div>
+
+<header class="header">
+  <div class="header-left">
+    <h1>Auth Showcase</h1>
+    <p>session-based vs jwt — django vs fastapi</p>
+  </div>
+  <div class="header-right">
+    <span class="served-by" id="served-by-pill">detecting…</span>
+    <span class="badge badge-django">Django 4.2</span>
+    <span class="badge badge-fastapi">FastAPI 0.110</span>
+  </div>
+</header>
+
+<main class="main">
+
+  <div class="server-tabs">
+    <button class="server-tab active" data-server="django" type="button" onclick="setServer('django')">
+      <span class="tab-dot"></span>
+      Django
+      <span class="tab-url">:8000</span>
+      <span class="tab-live">ACTIVE</span>
+    </button>
+    <button class="server-tab" data-server="fastapi" type="button" onclick="setServer('fastapi')">
+      <span class="tab-dot"></span>
+      FastAPI
+      <span class="tab-url">:8001</span>
+      <span class="tab-live">ACTIVE</span>
+    </button>
+  </div>
+  
+
+  <div class="method-selector">
+    <div class="method-card session active" onclick="setMethod('session')">
+      <div class="method-card-header">
+        <div class="method-card-label">Session Auth</div>
+        <div class="method-card-icon">🍪</div>
+      </div>
+      <div class="method-card-desc">Server stores user state. Cookie carries only a session ID.</div>
+      <span class="method-card-tag">stateful</span>
+    </div>
+    <div class="method-card jwt" onclick="setMethod('jwt')">
+      <div class="method-card-header">
+        <div class="method-card-label">JWT Auth</div>
+        <div class="method-card-icon">🔑</div>
+      </div>
+      <div class="method-card-desc">Token carries all user data. Server stores nothing — just verifies the signature.</div>
+      <span class="method-card-tag">stateless</span>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <div>
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Actions</span>
+          <span id="current-config" class="badge badge-django">Django / Session</span>
+        </div>
+        <div class="panel-body">
+
+          <div class="auth-state">
+            <div class="auth-state-row">
+              <div class="state-dot inactive" id="session-dot"></div>
+              <span class="state-text" id="session-state-text">No active session</span>
+            </div>
+            <div class="auth-state-row">
+              <div class="state-dot inactive" id="jwt-dot"></div>
+              <span class="state-text" id="jwt-state-text">No JWT token</span>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="username" placeholder="enter username" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="enter password" />
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-primary" type="button" onclick="doAction('register')">
+              <span class="btn-text">Register</span>
+              <span class="btn-method post">POST</span>
+            </button>
+            <button class="btn" type="button" onclick="doAction('login')">
+              <span class="btn-text">Login</span>
+              <span class="btn-method post">POST</span>
+            </button>
+            <button class="btn" type="button" onclick="doAction('profile')">
+              <span class="btn-text">Get Profile</span>
+              <span class="btn-method get">GET</span>
+            </button>
+            <div id="jwt-only-actions" style="display:none;flex-direction:column;gap:6px;">
+              <button class="btn" type="button" onclick="doAction('refresh')">
+                <span class="btn-text">Refresh Token</span>
+                <span class="btn-method post">POST</span>
+              </button>
+            </div>
+            <button class="btn" type="button" onclick="doAction('logout')">
+              <span class="btn-text">Logout</span>
+              <span class="btn-method post">POST</span>
+            </button>
+          </div>
+
+          <div id="token-section" style="display:none;">
+            <div class="divider"></div>
+            <div class="token-display" id="access-token-display" style="display:none;">
+              <div class="token-label">Access Token</div>
+              <div class="token-value" id="access-token-val"></div>
+            </div>
+            <div class="token-display" id="refresh-token-display" style="display:none;margin-top:7px;">
+              <div class="token-label">Refresh Token</div>
+              <div class="token-value" id="refresh-token-val"></div>
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">Current Config</div>
+            <div class="info-row">
+              <span class="info-label">Framework</span>
+              <span class="info-value django" id="info-framework">Django</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Auth Method</span>
+              <span class="info-value session" id="info-method">Session</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Target Port</span>
+              <span class="info-value neutral" id="info-port">8000</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">State</span>
+              <span class="info-value session" id="info-state">Stateful</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Same-Origin</span>
+              <span class="info-value neutral" id="info-same-origin">—</span>
+            </div>
+          </div>
+
+          <div class="comparison">
+            <div class="comparison-card session">
+              <div class="comparison-card-title">Session Strengths</div>
+              <div class="comparison-item">Instant logout/revoke</div>
+              <div class="comparison-item">httpOnly cookie security</div>
+              <div class="comparison-item">CSRF protection built-in</div>
+              <div class="comparison-item">No client token handling</div>
+            </div>
+            <div class="comparison-card jwt">
+              <div class="comparison-card-title">JWT Strengths</div>
+              <div class="comparison-item">No server-side storage</div>
+              <div class="comparison-item">Scales horizontally</div>
+              <div class="comparison-item">Cross-domain / microservices</div>
+              <div class="comparison-item">Mobile-friendly</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="response-panel">
+      <div class="response-header">
+        <div class="response-meta">
+          <span class="response-title">Response</span>
+          <span class="response-status" id="response-status"></span>
+        </div>
+        <div class="response-action">
+          <span class="response-endpoint" id="response-endpoint">—</span>
+          <button class="clear-btn" type="button" onclick="clearResponse()">Clear</button>
+        </div>
+      </div>
+      <div class="response-body">
+        <div class="response-placeholder" id="response-placeholder">
+          <div class="placeholder-icon">◎</div>
+          <div>Select a server, auth method, and fire a request</div>
+          <div style="color:var(--text-dim);font-size:11px;font-family:'DM Mono',monospace;">Responses will appear here with full JSON output</div>
+        </div>
+        <div class="json-output" id="json-output" style="display:none;"></div>
+      </div>
+      <div class="request-log" id="request-log" style="display:none;">
+        <div class="log-header">Request Log</div>
+        <div id="log-entries"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // ─────────────────────────────────────────────────────────────────────────
+  //  ORIGIN DETECTION
+  //  The #1 rule for session cookies: the HTML page and the API must be on
+  //  the SAME origin (same host + port). We detect which server is serving
+  //  this page and use relative URLs for that server so cookies work.
+  //
+  //  Served by Django  → http://localhost:8000/ → Django tab is same-origin
+  //  Served by FastAPI → http://localhost:8001/ → FastAPI tab is same-origin
+  //
+  //  When you switch to the other tab, the URL becomes cross-origin and we
+  //  warn you that session cookies won't work for that server from here.
+  //  JWT still works cross-origin (it uses the Authorization header, not cookies).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const PORTS = { django: '8000', fastapi: '8001' };
+  const currentPort     = window.location.port || '80';
+  const currentProtocol = window.location.protocol;
+
+  // Which server is hosting this page right now?
+  const hostingServer =
+    currentPort === PORTS.django  ? 'django'  :
+    currentPort === PORTS.fastapi ? 'fastapi' : null;
+
+  // BASE_URLS: '' (relative) when same-origin, absolute otherwise.
+  // Relative URLs hit the same server → same-origin → cookies work.
+  // Absolute URLs are cross-origin → session cookies blocked by browser.
+  const BASE_URLS = {
+    django:  currentPort === PORTS.django  ? '' : `http://localhost:${PORTS.django}`,
+    fastapi: currentPort === PORTS.fastapi ? '' : `http://localhost:${PORTS.fastapi}`,
+  };
+
+  // ─── App state ────────────────────────────────────────────────────────────
+  const state = {
+    server: hostingServer || 'django',
+    method: 'session',
+    jwtTokens:     { access: null, refresh: null },
+    sessionActive: false,
+    logEntries:    [],
+  };
+
+  // ─── Update header "served by" pill ───────────────────────────────────────
+  function updateServedByPill() {
+    const pill = document.getElementById('served-by-pill');
+    if (currentProtocol === 'file:') {
+      pill.textContent = 'file:// ⚠';
+      pill.className = 'served-by unknown';
+    } else if (hostingServer) {
+      pill.textContent = `served by ${hostingServer} :${currentPort}`;
+      pill.className = `served-by ${hostingServer}`;
+    } else {
+      pill.textContent = `port ${currentPort} — unknown`;
+      pill.className = 'served-by unknown';
+    }
+  }
+
+  // ─── Cross-origin warning banner ──────────────────────────────────────────
+  function updateOriginWarning() {
+    const { server, method } = state;
+    const targetPort  = PORTS[server];
+    const isSameOrigin = currentPort === targetPort;
+    const bannerEl    = document.getElementById('banner-origin');
+    const msgEl       = document.getElementById('banner-origin-msg');
+
+    // Update "Same-Origin" row in info box
+    const soEl = document.getElementById('info-same-origin');
+    if (isSameOrigin) {
+      soEl.textContent = '✓ yes';
+      soEl.className = 'info-value django';
+    } else {
+      soEl.textContent = '✗ no';
+      soEl.className = 'info-value session';
+    }
+
+    // Mark the cross-origin tab visually
+    document.querySelectorAll('.server-tab').forEach(t => {
+      const isThis = t.dataset.server === server;
+      const thisSameOrigin = currentPort === PORTS[t.dataset.server];
+      t.classList.toggle('cross-origin-tab', !thisSameOrigin);
+    });
+
+    // Show banner only for session + cross-origin (JWT doesn't use cookies)
+    if (!isSameOrigin && method === 'session') {
+      msgEl.innerHTML =
+        `<strong>Session cookies won't work.</strong> ` +
+        `This page is on port <code>${currentPort}</code> but you're targeting ` +
+        `<strong>${capitalize(server)}</strong> on port <code>${targetPort}</code>. ` +
+        `Browsers block <code>SameSite=Lax</code> cookies in cross-origin context.<br>` +
+        `<strong>Fix:</strong> Open this page from the correct server — ` +
+        `visit <code>http://localhost:${targetPort}/</code> to test ${capitalize(server)} session auth. ` +
+        `JWT auth works fine cross-origin.`;
+      bannerEl.classList.add('show');
+    } else {
+      bannerEl.classList.remove('show');
+    }
+  }
+
+  function setServer(server) {
+    const targetPort = PORTS[server];
+    const isSameOrigin = window.location.port === targetPort;
+
+    // If SAME origin → behave normally (no redirect)
+    if (isSameOrigin) {
+      state.server = server;
+
+      document.querySelectorAll('.server-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.server === server)
+      );
+
+      updateConfig();
+      updateOriginWarning();
+      return;
+    }
+
+    // If CROSS origin → redirect to correct server
+    const targetUrl = `http://localhost:${targetPort}`;
+    window.location.href = targetUrl;
+  }
+   
+
+  function setMethod(method) {
+    state.method = method;
+    document.querySelectorAll('.method-card').forEach(c =>
+      c.classList.toggle('active', c.classList.contains(method))
+    );
+    document.getElementById('jwt-only-actions').style.display = method === 'jwt' ? 'flex' : 'none';
+    document.getElementById('token-section').style.display    = method === 'jwt' ? 'block' : 'none';
+    updateConfig();
+    updateOriginWarning();
+  }
+
+  function updateConfig() {
+    const { server, method } = state;
+    document.getElementById('current-config').textContent = `${capitalize(server)} / ${method === 'session' ? 'Session' : 'JWT'}`;
+    document.getElementById('current-config').className   = `badge badge-${server}`;
+    document.getElementById('info-framework').textContent = capitalize(server);
+    document.getElementById('info-framework').className   = `info-value ${server}`;
+    document.getElementById('info-method').textContent    = method === 'session' ? 'Session' : 'JWT';
+    document.getElementById('info-method').className      = `info-value ${method}`;
+    document.getElementById('info-port').textContent      = PORTS[server];
+    document.getElementById('info-state').textContent     = method === 'session' ? 'Stateful' : 'Stateless';
+    document.getElementById('info-state').className       = `info-value ${method}`;
+  }
+
+  function updateAuthState() {
+    const { jwtTokens, sessionActive } = state;
+
+    const sessionDot  = document.getElementById('session-dot');
+    const sessionText = document.getElementById('session-state-text');
+    const jwtDot      = document.getElementById('jwt-dot');
+    const jwtText     = document.getElementById('jwt-state-text');
+
+    sessionDot.className  = sessionActive    ? 'state-dot active'   : 'state-dot inactive';
+    sessionText.textContent = sessionActive  ? 'Session active'      : 'No active session';
+    sessionText.className  = sessionActive   ? 'state-text active'   : 'state-text';
+
+    jwtDot.className    = jwtTokens.access   ? 'state-dot active'   : 'state-dot inactive';
+    jwtText.textContent = jwtTokens.access   ? 'JWT token active'   : 'No JWT token';
+    jwtText.className   = jwtTokens.access   ? 'state-text active'  : 'state-text';
+
+    const atd = document.getElementById('access-token-display');
+    const rtd = document.getElementById('refresh-token-display');
+    atd.style.display = jwtTokens.access  ? 'block' : 'none';
+    rtd.style.display = jwtTokens.refresh ? 'block' : 'none';
+    if (jwtTokens.access)  document.getElementById('access-token-val').textContent  = jwtTokens.access;
+    if (jwtTokens.refresh) document.getElementById('refresh-token-val').textContent = jwtTokens.refresh;
+  }
+
+  // ─── Endpoint builder ─────────────────────────────────────────────────────
+  function getEndpoint(action) {
+    const base   = BASE_URLS[state.server];    // '' when same-origin, absolute when cross
+    const prefix = `${base}/api/${state.method}`;
+    return {
+      register: `${prefix}/register/`,
+      login:    `${prefix}/login/`,
+      profile:  `${prefix}/profile/`,
+      logout:   `${prefix}/logout/`,
+      refresh:  `${prefix}/token/refresh/`,
+    }[action] || '';
+  }
+
+  // ─── Main action handler ──────────────────────────────────────────────────
+  async function doAction(action) {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    const { method, jwtTokens } = state;
+
+    const endpoint   = getEndpoint(action);
+    const isGet      = action === 'profile';
+    const httpMethod = isGet ? 'GET' : 'POST';
+
+    // Validation
+    if ((action === 'register' || action === 'login') && (!username || !password)) {
+      return showClientError('Username and password are required');
+    }
+    if (action === 'refresh' && !jwtTokens.refresh) {
+      return showClientError('No refresh token. Please login first.');
+    }
+    if (action === 'logout' && method === 'jwt' && !jwtTokens.refresh) {
+      return showClientError('No refresh token to revoke.');
+    }
+
+    // Headers & body
+    const headers = { 'Content-Type': 'application/json' };
+    let body = null;
+
+    if (method === 'jwt' && jwtTokens.access && isGet) {
+      headers['Authorization'] = `Bearer ${jwtTokens.access}`;
+    }
+    if (!isGet) {
+      if (action === 'register' || action === 'login') {
+        body = JSON.stringify({ username, password });
+      } else if (action === 'refresh') {
+        body = JSON.stringify({ refresh: jwtTokens.refresh });
+      } else if (action === 'logout' && method === 'jwt') {
+        body = JSON.stringify({ refresh: jwtTokens.refresh });
+      }
+    }
+
+    setLoading(true);
+    // Show relative path in the endpoint display
+    const displayPath = endpoint.startsWith('http')
+      ? endpoint.replace(/^https?:\/\/localhost:\d+/, '')
+      : endpoint;
+    document.getElementById('response-endpoint').textContent = displayPath;
+
+    const t0 = Date.now();
+    try {
+      const res = await fetch(endpoint, {
+        method: httpMethod,
+        headers,
+        credentials: 'include',   // needed for session cookies
+        ...(body ? { body } : {}),
+      });
+      const duration = Date.now() - t0;
+
+      const ct = res.headers.get('content-type') || '';
+      const data = ct.includes('application/json')
+        ? await res.json()
+        : { raw_response: await res.text(), status: res.status };
+
+      const statusEl = document.getElementById('response-status');
+      statusEl.textContent = `${res.status} ${res.ok ? 'OK' : 'ERROR'}`;
+      statusEl.className   = `response-status ${res.ok ? 'success' : 'error'}`;
+
+      renderJSON(data);
+      addLogEntry(httpMethod, displayPath, res.status, duration);
+
+      if (res.ok) {
+        if (action === 'login') {
+          if (method === 'session') state.sessionActive = true;
+          if (method === 'jwt' && data.tokens) {
+            state.jwtTokens.access  = data.tokens.access;
+            state.jwtTokens.refresh = data.tokens.refresh;
+          }
+        }
+        if (action === 'refresh' && data.access) {
+          state.jwtTokens.access = data.access;
+        }
+        if (action === 'logout') {
+          state.sessionActive = false;
+          if (method === 'jwt') state.jwtTokens = { access: null, refresh: null };
+        }
+        updateAuthState();
+      }
+
+    } catch (err) {
+      const duration = Date.now() - t0;
+      console.error('[Auth Showcase] fetch failed:', err);
+
+      document.getElementById('response-status').textContent = 'NETWORK ERROR';
+      document.getElementById('response-status').className   = 'response-status error';
+
+      renderJSON({
+        error:  'Connection failed',
+        detail: err.message,
+        hint:   `Is the ${capitalize(state.server)} server running on :${PORTS[state.server]}?`,
+      });
+      addLogEntry(httpMethod, displayPath, 0, duration);
+    }
+
+    setLoading(false);
+  }
+
+  // ─── Render ───────────────────────────────────────────────────────────────
+  function renderJSON(data) {
+    document.getElementById('response-placeholder').style.display = 'none';
+    const out = document.getElementById('json-output');
+    out.style.display = 'block';
+    out.innerHTML = syntaxHighlight(JSON.stringify(data, null, 2));
+    out.classList.remove('fade-in');
+    void out.offsetWidth;
+    out.classList.add('fade-in');
+  }
+
+  function syntaxHighlight(json) {
+    return json
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        m => {
+          if (/^"/.test(m)) return /:$/.test(m) ? `<span class="json-key">${m}</span>` : `<span class="json-string">${m}</span>`;
+          if (/true|false/.test(m)) return `<span class="json-boolean">${m}</span>`;
+          if (/null/.test(m))       return `<span class="json-null">${m}</span>`;
+          return `<span class="json-number">${m}</span>`;
+        }
+      );
+  }
+
+  function showClientError(msg) {
+    renderJSON({ error: msg });
+    document.getElementById('response-status').textContent = 'CLIENT ERROR';
+    document.getElementById('response-status').className   = 'response-status error';
+  }
+
+  function clearResponse() {
+    document.getElementById('response-placeholder').style.display = 'flex';
+    document.getElementById('json-output').style.display = 'none';
+    document.getElementById('response-status').className = 'response-status';
+    document.getElementById('response-endpoint').textContent = '—';
+  }
+
+  // ─── Log ──────────────────────────────────────────────────────────────────
+  function addLogEntry(method, path, status, duration) {
+    const time = new Date().toLocaleTimeString('en-US', { hour12: false });
+    state.logEntries.unshift({ method, path, status, duration, time });
+    renderLog();
+  }
+
+  function renderLog() {
+    const logEl     = document.getElementById('request-log');
+    const entriesEl = document.getElementById('log-entries');
+    if (!state.logEntries.length) { logEl.style.display = 'none'; return; }
+    logEl.style.display = 'block';
+    entriesEl.innerHTML = state.logEntries.slice(0, 12).map((e, i) => `
+      <div class="log-entry ${i === 0 ? 'active-entry' : ''}">
+        <span class="log-time">${e.time}</span>
+        <span class="log-method ${e.method.toLowerCase()}">${e.method}</span>
+        <span class="log-path">${e.path}</span>
+        <span class="log-dur">${e.duration}ms</span>
+        <span class="log-status ${e.status >= 200 && e.status < 300 ? 'ok' : 'fail'}">${e.status || 'ERR'}</span>
+      </div>`).join('');
+  }
+
+  function setLoading(on) {
+    document.querySelectorAll('.btn').forEach(b => b.classList.toggle('loading', on));
+  }
+
+  function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  // Auto-select the tab that matches the server this page was served from
+  if (hostingServer) {
+    state.server = hostingServer;
+    document.querySelectorAll('.server-tab').forEach(t =>
+      t.classList.toggle('active', t.dataset.server === hostingServer)
+    );
+  }
+
+  updateServedByPill();
+  updateConfig();
+  updateAuthState();
+  updateOriginWarning();
+
+  if (currentProtocol === 'file:') {
+    document.getElementById('banner-file').classList.add('show');
+  }
+
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); doAction('login'); }
+  });
+
+  window.addEventListener('unhandledrejection', e => {
+    console.error('[Auth Showcase] unhandled rejection:', e.reason);
+    e.preventDefault();
+  });
+</script>
+
+</body>
+</html>
